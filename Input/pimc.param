@@ -1,0 +1,18 @@
+#Simulation_Input#
+Ensemble: NVT
+Temperature: 50.0
+Pressure: 0.0
+Number_of_Eq_steps: 2000000
+Number_of_MC_steps: 2000000
+Number_of_beads: 20
+Acceptance_ratio: 0.35
+Traj_steps_before_printing: 10000
+Print_mode: COM
+XYZ_file: struct.xyz
+Box_size: 50.0 50.0 50.0
+Cutoff: 15.0
+Connectivity_file: None
+Spin_mode_(eFF): LPIMC
+Number_of_pre_Eq_steps: 0
+Electrons_(eFF): 0
+Positrons_(eFF): 0

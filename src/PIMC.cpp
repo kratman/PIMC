@@ -10,6 +10,7 @@
 #include "coordinates.h"
 #include "harmonic_bond.h"
 #include "harmonic_angle.h"
+#include "lennard_jones.h"
 
 using namespace std;
 
@@ -49,25 +50,6 @@ double SwapProb = 0.05; //Probability to swap spins
 double FlipProb = 0.05; //Probability to flip a single spin
 double VolProb = 0.05; //Volume change probability
 
-//Physical Constants
-const double k = 8.6173324e-5; //Boltzmann constant (eV)
-const double hbar = 6.58211928e-16; //Reduced Planck Constant (eV)
-const double hbarSI = 1.054571726e-34; //Reduced Planck Constant (SI)
-const double kb = 0.69503476; //Boltzmann constant (cm-1)
-const double kSI = 1.3806488e-23; //Boltzmann constant (SI)
-const double m2Ang = 1.0e10; //Angstroms to meters
-const double amu2kg = 1.660538921e-27; //Atomic mass units to kg
-const double cs = 2.99792458e8; //Speed of light (m)
-const double pi = 4*atan(1); //Pi
-const double h = 2*pi*hbar; //Planck Constant (eV)
-const double SI2eV = 1/(1.602176565e-19); //Convert SI to eV
-const double ToeV = amu2kg*SI2eV/(m2Ang*m2Ang); //Convert to eV units
-const double C2eV = m2Ang/(4*pi*SI2eV*8.854187817e-12); //Coulomb to eV
-const double Masse = 9.10938291e-31; //Mass of an electron (kg)
-const double BohrRad = 0.52917721092; //Bohr radius (Ang)
-const double Har2eV = 27.21138386; //Hartrees to eV
-const double atm2eV = SI2eV*1.01325e-25; //atmA^3 to eV
-
 //Root constants
 const double sqrt2 = sqrt(2); //Square root of 2
 const double TwoRtSix = pow(2,(1.0/6.0)); //2**(1/6) for WCA
@@ -93,13 +75,7 @@ struct Qpart
   double Ep; //Temp. energy for parallel
   vector<ParticleCoordinates> P; //Bead coordinates
   vector<BondParameters> Bonds; //Harmonic bonds
-  vector<AngParameters> Angs; //Harmonic angles
-};
-
-struct LJparam
-{
-  double sig; //Sphere radius
-  double eps; //Well depth
+  vector<AngleParameters> Angs; //Harmonic angles
 };
 
 double Dist2(ParticleCoordinates& a, ParticleCoordinates& b)
@@ -132,22 +108,6 @@ double Dist2(ParticleCoordinates& a, ParticleCoordinates& b)
   //Squared radius
   double r2 = dx*dx+dy*dy+dz*dz;
   return r2;
-};
-
-double LJEnergy(double s, double e, double r, double q1, double q2)
-{
-  double E = 0.0;
-  if (r == 0.0)
-  {
-    return HugeNum; //Prevents LJ singularity
-  }
-  double r6 = s/r;
-  r6 *= r6*r6;
-  r6 *= r6;
-  double r12 = r6*r6;
-  //Note: r6 and r12 are inverse
-  E = 4*e*(r12-r6)+(C2eV*q1*q2/r);
-  return E;
 };
 
 double SpringEnergy(double k, double r2)
@@ -198,7 +158,7 @@ double HarmEnergy(BondParameters& bond, Qpart& at1, Qpart& at2, int p)
   return E;
 };
 
-double AngEnergy(AngParameters& ang, Qpart& at1, Qpart& at2, Qpart& at3, int p)
+double AngEnergy(AngleParameters& ang, Qpart& at1, Qpart& at2, Qpart& at3, int p)
 {
   double r1 = sqrt(Dist2(at1.P[p],at2.P[p]));
   double r2 = sqrt(Dist2(at1.P[p],at3.P[p]));
@@ -256,7 +216,7 @@ double Get_Espring(vector<Qpart>& parts)
   return E;
 };
 
-double Get_Epot(vector<Qpart>& parts, map<string,LJparam>& LJmap)
+double Get_Epot(vector<Qpart>& parts, map<string,LennardJones>& LJmap)
 {
   //Bonded and non-bonded potential for atoms
   double E = 0.0;
@@ -442,7 +402,7 @@ double Get_EeFF(vector<Qpart>& parts, vector<Qpart>& elecs)
 };
 
 bool MCMove(vector<Qpart>& parts, vector<Qpart>& elecs,
- map<string,LJparam>& LJmap)
+ map<string,LennardJones>& LJmap)
 {
   bool acc = 0;
   //Copy parts
@@ -1324,7 +1284,7 @@ int main()
   double accratio,SumE,SumE2,VolAvg,Ek;
   vector<Qpart> Atoms;
   vector<string> Types;
-  map<string,LJparam> LJparams;
+  map<string,LennardJones> LJparams;
   paramfile.open(filename1.c_str(),ios_base::in);
   trajfile.open(filename2.c_str(),ios_base::out);
   potfile.open(filename3.c_str(),ios_base::in);
@@ -1442,7 +1402,7 @@ int main()
   {
     double sig,eps;
     potfile >> eps >> sig;
-    LJparam tmp;
+    LennardJones tmp;
     tmp.sig = sig;
     tmp.eps = eps;
     LJparams[Types[i]+Types[i]] = tmp;
@@ -1460,7 +1420,7 @@ int main()
         eps = LJparams[Types[i]+Types[i]].eps;
         eps *= LJparams[Types[j]+Types[j]].eps;
         eps = sqrt(eps);
-        LJparam tmp;
+        LennardJones tmp;
         tmp.sig = sig;
         tmp.eps = eps;
         LJparams[Types[i]+Types[j]] = tmp;
@@ -1495,7 +1455,7 @@ int main()
       bondfile >> dummy >> Nbonds;
       for (int i=0;i<Nbonds;i++)
       {
-        AngParameters tmp;
+        AngleParameters tmp;
         int cent;
         bondfile >> cent >> tmp.at2 >> tmp.at3 >> tmp.K >> tmp.ang;
         tmp.ang *= pi/180.0;

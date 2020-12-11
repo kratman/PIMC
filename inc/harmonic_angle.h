@@ -1,7 +1,7 @@
 
 #pragma once
 
-struct AngParameters
+struct AngleParameters
 {
     int at2; //atom ID 2
     int at3; //atom ID 3

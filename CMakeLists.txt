@@ -7,4 +7,8 @@ add_executable(PIMC
         inc/harmonic_angle.h
         inc/harmonic_bond.h
         inc/coordinates.h
+        inc/lennard_jones.h
+        inc/physical_constants.h
         src/PIMC.cpp)
+
+target_include_directories(PIMC PRIVATE inc)

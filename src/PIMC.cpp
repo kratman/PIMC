@@ -6,6 +6,11 @@
 #include <fstream>
 #include <vector>
 #include <map>
+
+#include "coordinates.h"
+#include "harmonic_bond.h"
+#include "harmonic_angle.h"
+
 using namespace std;
 
 //Compile options
@@ -75,29 +80,6 @@ int Ensemble = 0; //NVT=0, NPT=1
 int Nbeads; //Number of time slices
 const double HugeNum = 1e200; //Large number
 
-//Data Structures
-struct Coord
-{
-  double x; //x position
-  double y; //y position
-  double z; //z position
-};
-
-struct BondParam
-{
-  int at2; //atom ID 2
-  double K; //Force constant (eV/Ang^2)
-  double R; //Equil. distance (Ang)
-};
-
-struct AngParam
-{
-  int at2; //atom ID 2
-  int at3; //atom ID 3
-  double K; //Force constant (eV/rad^2)
-  double ang; //Equilibrium angle (Rad)
-};
-
 struct Qpart
 {
   string typ; //Atom type
@@ -109,9 +91,9 @@ struct Qpart
   double y; //y position (Ang)
   double z; //z position (Ang)
   double Ep; //Temp. energy for parallel
-  vector<Coord> P; //Bead coordinates
-  vector<BondParam> Bonds; //Harmonic bonds
-  vector<AngParam> Angs; //Harmonic angles
+  vector<ParticleCoordinates> P; //Bead coordinates
+  vector<BondParameters> Bonds; //Harmonic bonds
+  vector<AngParameters> Angs; //Harmonic angles
 };
 
 struct LJparam
@@ -120,7 +102,7 @@ struct LJparam
   double eps; //Well depth
 };
 
-double Dist2(Coord& a, Coord& b)
+double Dist2(ParticleCoordinates& a, ParticleCoordinates& b)
 {
   //Displacements
   double dx = a.x-b.x;
@@ -200,7 +182,7 @@ double RadSpring(vector<Qpart>& parts)
   return E;
 };
 
-double HarmEnergy(BondParam& bond, Qpart& at1, Qpart& at2, int p)
+double HarmEnergy(BondParameters& bond, Qpart& at1, Qpart& at2, int p)
 {
   double r = sqrt(Dist2(at1.P[p],at2.P[p]));
   if ((r == 0.0) and (CoulSub == 1))
@@ -216,7 +198,7 @@ double HarmEnergy(BondParam& bond, Qpart& at1, Qpart& at2, int p)
   return E;
 };
 
-double AngEnergy(AngParam& ang, Qpart& at1, Qpart& at2, Qpart& at3, int p)
+double AngEnergy(AngParameters& ang, Qpart& at1, Qpart& at2, Qpart& at3, int p)
 {
   double r1 = sqrt(Dist2(at1.P[p],at2.P[p]));
   double r2 = sqrt(Dist2(at1.P[p],at3.P[p]));
@@ -969,10 +951,10 @@ void Get_Centroid(Qpart& part)
   return;
 };
 
-Coord Get_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
+ParticleCoordinates Get_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
 {
   double x=0,y=0,z=0,M=0;
-  Coord com;
+  ParticleCoordinates com;
   //Gather all atom centroids
   #pragma omp parallel for
   for (int i=0;i<parts.size();i++)
@@ -1019,7 +1001,7 @@ Coord Get_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
   return com;
 };
 
-void Get_Range(vector<Qpart>& parts, Coord& Ls, Coord& Hs)
+void Get_Range(vector<Qpart>& parts, ParticleCoordinates& Ls, ParticleCoordinates& Hs)
 {
   //Find the min and max values of the positions
   double minx = 1000000000.0;
@@ -1076,7 +1058,7 @@ void Get_Range(vector<Qpart>& parts, Coord& Ls, Coord& Hs)
 
 void Remove_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
 {
-  Coord com = Get_COM(parts,elecs);
+  ParticleCoordinates com = Get_COM(parts, elecs);
   //Subtract COM for atoms
   #pragma omp parallel for
   for (int i=0;i<parts.size();i++)
@@ -1410,7 +1392,7 @@ int main()
         randy = 0.5;
         randz = 0.5;
       }
-      Coord temp;
+      ParticleCoordinates temp;
       //Set random bead displacements
       temp.x = x+(randx-0.5)*step;
       temp.y = y+(randy-0.5)*step;
@@ -1496,7 +1478,7 @@ int main()
       bondfile >> dummy >> Nbonds;
       for (int i=0;i<Nbonds;i++)
       {
-        BondParam tmp,tmp2;
+        BondParameters tmp,tmp2;
         bondfile >> tmp.at2 >> tmp2.at2 >> tmp.K >> tmp.R;
         tmp2.K = tmp.K;
         tmp2.R = tmp.R;
@@ -1513,7 +1495,7 @@ int main()
       bondfile >> dummy >> Nbonds;
       for (int i=0;i<Nbonds;i++)
       {
-        AngParam tmp;
+        AngParameters tmp;
         int cent;
         bondfile >> cent >> tmp.at2 >> tmp.at3 >> tmp.K >> tmp.ang;
         tmp.ang *= pi/180.0;
@@ -1532,8 +1514,8 @@ int main()
   if (Nelec > 0)
   {
     int spinct = -1;
-    Coord Lows;
-    Coord Highs;
+    ParticleCoordinates Lows;
+    ParticleCoordinates Highs;
     Get_Range(Atoms,Lows,Highs);
     //Create electron
     for (int i=0;i<Nelec;i++)
@@ -1555,7 +1537,7 @@ int main()
       for (int j=0;j<Nbeads;j++)
       {
         tmp.rad.push_back(Rad);
-        Coord Temp;
+        ParticleCoordinates Temp;
         randx = (((double)rand())/((double)RAND_MAX));
         randy = (((double)rand())/((double)RAND_MAX));
         randz = (((double)rand())/((double)RAND_MAX));
@@ -1577,8 +1559,8 @@ int main()
   if (Npos > 0)
   {
     int spinct = -1;
-    Coord Lows;
-    Coord Highs;
+    ParticleCoordinates Lows;
+    ParticleCoordinates Highs;
     Get_Range(Atoms,Lows,Highs);
     //Create positron
     for (int i=0;i<Npos;i++)
@@ -1600,7 +1582,7 @@ int main()
       for (int j=0;j<Nbeads;j++)
       {
         tmp.rad.push_back(Rad);
-        Coord Temp;
+        ParticleCoordinates Temp;
         randx = (((double)rand())/((double)RAND_MAX));
         randy = (((double)rand())/((double)RAND_MAX));
         randz = (((double)rand())/((double)RAND_MAX));

@@ -4,4 +4,7 @@ project(PIMC)
 set(CMAKE_CXX_STANDARD 14)
 
 add_executable(PIMC
+        inc/harmonic_angle.h
+        inc/harmonic_bond.h
+        inc/coordinates.h
         src/PIMC.cpp)

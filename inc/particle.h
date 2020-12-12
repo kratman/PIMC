@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include "coordinates.h"
+#include "system.h"
 
 struct BondParameters;
 struct AngleParameters;
@@ -22,4 +23,22 @@ struct Qpart
     std::vector<ParticleCoordinates> P; //Bead coordinates
     std::vector<BondParameters> Bonds; //Harmonic bonds
     std::vector<AngleParameters> Angs; //Harmonic angles
+};
+
+void Get_Centroid(Qpart& part)
+{
+    double x=0,y=0,z=0;
+    for (int i=0;i<Nbeads;i++)
+    {
+        x += part.P[i].x;
+        y += part.P[i].y;
+        z += part.P[i].z;
+    }
+    x /= Nbeads;
+    y /= Nbeads;
+    z /= Nbeads;
+    part.x = x;
+    part.y = y;
+    part.z = z;
+    return;
 };

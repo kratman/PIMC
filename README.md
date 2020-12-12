@@ -24,7 +24,7 @@ Note: The format of this file is fixed by the code. The order of the options
 cannot be changed and the spaces should be replaced with underscores. PIMC.exe
 reads a single string before reading the value(s).
 
-## Options
+### Options
 
 Ensemble: NVT or NPT simulations. If the NPT ensemble is chosen, the system
 should be large enough to ensure that the simulation box is twice the size of
@@ -83,7 +83,7 @@ Angles: Num. angles
 <cent. atom> <atom 1> <atom 2> <force constant (eV/rad^2)> <Eq. angle (deg.)>
 ...
 
-## Options for free electrons or positrons using the eFF model
+### Options for free electrons or positrons using the eFF model
 
 Note: The eFF model represents electrons as spherical Gaussian charge
 distributions which have 5 degrees of freedom (x, y, z, radius, and spin). This

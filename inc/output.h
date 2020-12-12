@@ -4,7 +4,7 @@
 #include "center_of_mass.h"
 
 inline void Print_traj(std::vector<Qpart>& parts, std::vector<Qpart>& elecs,
-                std::fstream& traj, std::string mode)
+                       std::fstream& traj, std::string mode)
 {
     if (RCOM == 1)
     {

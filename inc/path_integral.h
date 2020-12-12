@@ -2,6 +2,7 @@
 #pragma once
 
 #include "physical_constants.h"
+#include <omp.h>
 
 inline double SpringEnergy(double k, double r2)
 {

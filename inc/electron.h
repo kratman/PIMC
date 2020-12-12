@@ -2,6 +2,7 @@
 #pragma once
 
 #include <vector>
+#include <omp.h>
 #include "physical_constants.h"
 
 const double Rad = 0.10; //Initial electron radius

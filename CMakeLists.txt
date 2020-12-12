@@ -3,6 +3,8 @@ project(PIMC)
 
 set(CMAKE_CXX_STANDARD 14)
 
+find_package(OpenMP)
+
 add_executable(PIMC
         inc/center_of_mass.h
         inc/coordinates.h
@@ -23,3 +25,8 @@ add_executable(PIMC
         src/PIMC.cpp)
 
 target_include_directories(PIMC PRIVATE inc)
+
+if (OPENMP_FOUND)
+
+    target_link_libraries(PIMC PRIVATE OpenMP::OpenMP_CXX)
+endif()

@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <omp.h>
+
 inline bool MCMove(std::vector<Qpart>& parts, std::vector<Qpart>& elecs,
                    std::map<std::string,LennardJones>& LJmap)
 {

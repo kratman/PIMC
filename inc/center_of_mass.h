@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <omp.h>
+
 ParticleCoordinates Get_COM(std::vector<Qpart>& parts, std::vector<Qpart>& elecs)
 {
     double x=0,y=0,z=0,M=0;

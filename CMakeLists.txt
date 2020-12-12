@@ -11,6 +11,10 @@ add_executable(PIMC
         inc/physical_constants.h
         inc/electron.h
         inc/move_settings.h
+        inc/particle.h
+        inc/miscellaneous_constants.h
+        inc/physics_settings.h
+        inc/utilities.h
         src/PIMC.cpp)
 
 target_include_directories(PIMC PRIVATE inc)

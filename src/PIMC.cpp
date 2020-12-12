@@ -13,148 +13,23 @@
 #include "lennard_jones.h"
 #include "electron.h"
 #include "move_settings.h"
+#include "particle.h"
+#include "physics_settings.h"
+#include "utilities.h"
 
 using namespace std;
 
-//Compile options
-const bool Debug = false; //Turn debugging on/off
-const bool RCOM = true; //Remove center of mass
-const bool CoulSub = true; //Turn Coulomb subtracting on/off
-const bool Isotrop = true; //Force isotropic expansion
-const bool qGrid = false; //Restrict point charge movements
-
-//Root constants
-const double sqrt2 = sqrt(2); //Square root of 2
-const double TwoRtSix = pow(2,(1.0/6.0)); //2**(1/6) for WCA
-const double rtMe = 0.2*sqrt(amu2kg/Masse); //Increase electron step
 
 //Global parameters
 double Beta,Lx,Ly,Lz,LJcut,Press; //Parameters needed for functions
 double rtNbeads; //Scale factor for eFF kinetic energy
 int Ensemble = 0; //NVT=0, NPT=1
 int Nbeads; //Number of time slices
-const double HugeNum = 1e200; //Large number
-
-struct Qpart
-{
-  string typ; //Atom type
-  double m; //mass (amu)
-  double q; //Charge (au)
-  vector<double> rad; //Radius, electron only (Ang)
-  int spin; //Spin, electron only
-  double x; //x position (Ang)
-  double y; //y position (Ang)
-  double z; //z position (Ang)
-  double Ep; //Temp. energy for parallel
-  vector<ParticleCoordinates> P; //Bead coordinates
-  vector<BondParameters> Bonds; //Harmonic bonds
-  vector<AngleParameters> Angs; //Harmonic angles
-};
-
-double Dist2(ParticleCoordinates& a, ParticleCoordinates& b)
-{
-  //Displacements
-  double dx = a.x-b.x;
-  double dy = a.y-b.y;
-  double dz = a.z-b.z;
-  //PBC
-  bool check = 1;
-  while (check == 1)
-  {
-    check = 0;
-    if (abs(dx) > (0.5*Lx))
-    {
-      dx = Lx-abs(dx);
-      check = 1;
-    }
-    if (abs(dy) > (0.5*Ly))
-    {
-      dy = Ly-abs(dy);
-      check = 1;
-    }
-    if (abs(dz) > (0.5*Lz))
-    {
-      dz = Lz-abs(dz);
-      check = 1;
-    }
-  }
-  //Squared radius
-  double r2 = dx*dx+dy*dy+dz*dz;
-  return r2;
-};
 
 double SpringEnergy(double k, double r2)
 {
   //General harmonic bond for PI rings
   double E = 0.5*k*r2;
-  return E;
-};
-
-double RadSpring(vector<Qpart>& parts)
-{
-  //Harmonic bond to keep the radius in check
-  double E = 0.0;
-  double w0 = 1/(Beta*hbar);
-  w0 *= Charm*w0*ToeV;
-  #pragma omp parallel for
-  for (int i=0;i<parts.size();i++)
-  {
-    parts[i].Ep = 0.0;
-    double w = w0*parts[i].m*Nbeads;
-    for (int j=0;j<Nbeads;j++)
-    {
-      //Weakly restrain the radius to zero
-      parts[i].Ep += 0.5*w*parts[i].rad[j]*parts[i].rad[j];
-    }
-  }
-  #pragma omp barrier
-  for (int i=0;i<parts.size();i++)
-  {
-    E += parts[i].Ep;
-  }
-  return E;
-};
-
-double HarmEnergy(BondParameters& bond, Qpart& at1, Qpart& at2, int p)
-{
-  double r = sqrt(Dist2(at1.P[p],at2.P[p]));
-  if ((r == 0.0) and (CoulSub == 1))
-  {
-    return HugeNum; //Avoid dividing by zero
-  }
-  double E = 0.5*bond.K*(r-bond.R)*(r-bond.R);
-  //Coulomb subtract, if applicable
-  if (CoulSub == 1)
-  {
-    E -= (C2eV*at1.q*at2.q/r);
-  }
-  return E;
-};
-
-double AngEnergy(AngleParameters& ang, Qpart& at1, Qpart& at2, Qpart& at3, int p)
-{
-  double r1 = sqrt(Dist2(at1.P[p],at2.P[p]));
-  double r2 = sqrt(Dist2(at1.P[p],at3.P[p]));
-  double dx1 = at2.P[p].x-at1.P[p].x;
-  double dx2 = at3.P[p].x-at1.P[p].x;
-  double dy1 = at2.P[p].y-at1.P[p].y;
-  double dy2 = at3.P[p].y-at1.P[p].y;
-  double dz1 = at2.P[p].z-at1.P[p].z;
-  double dz2 = at3.P[p].z-at1.P[p].z;
-  double Theta = dx1*dx2+dy1*dy2+dz1*dz2;
-  Theta /= r1*r2;
-  Theta = acos(Theta);
-  double E = 0.5*ang.K*(Theta-ang.ang)*(Theta-ang.ang);
-  //Coulomb subtract, if applicable
-  if (CoulSub == 1)
-  {
-    double r3 = sqrt(Dist2(at2.P[p],at3.P[p]));
-    if (r3 == 0.0)
-    {
-      return HugeNum; //Avoid dividing by zero
-    }
-    E -= (C2eV*at2.q*at3.q/r3);
-  }
   return E;
 };
 
@@ -236,139 +111,6 @@ double Get_Epot(vector<Qpart>& parts, map<string,LennardJones>& LJmap)
   for (int i=0;i<parts.size();i++)
   {
     E += parts[i].Ep;
-  }
-  E /= Nbeads; //Removes double counting
-  return E;
-};
-
-double EFFEnergy(Qpart& atom, Qpart& elec, int p)
-{
-  //Atom-lepton interactions
-  double E = 0.0;
-  double r = Dist2(atom.P[p],elec.P[p]);
-  if (r <= LJcut*LJcut)
-  {
-    if (r == 0.0)
-    {
-      E = C2eV*atom.q*elec.q*sqrt(8/pi)/elec.rad[p];
-    }
-    else
-    {
-      r = sqrt(r);
-      E = (C2eV*atom.q*elec.q/r)*erf(sqrt2*r/elec.rad[p]);
-    }
-  }
-  return E;
-};
-
-double EFFCorr(Qpart& elec1, Qpart& elec2, int p)
-{
-  //Lepton-lepton interactions
-  double E = 0.0;
-  double r = Dist2(elec1.P[p],elec2.P[p]);
-  //Electrostatic energy
-  if (r <= LJcut*LJcut)
-  {
-    r = sqrt(r);
-    if (r == 0.0)
-    {
-      E = C2eV*elec1.q*elec2.q*sqrt(8/pi);
-      E /= sqrt(elec1.rad[p]*elec1.rad[p]+elec2.rad[p]*elec2.rad[p]);
-      return HugeNum; //Escape to avoid singularities later
-    }
-    else
-    {
-      double radij = elec1.rad[p]*elec1.rad[p];
-      radij += elec2.rad[p]*elec2.rad[p];
-      radij = sqrt(radij);
-      E = (C2eV*elec1.q*elec2.q/r);
-      E *= erf(sqrt2*r/radij);
-    }
-    //Pauli repulsion
-    if (elec1.typ == elec2.typ)
-    {
-      //Overlap
-      double Sij = 2/((elec1.rad[p]/elec2.rad[p])+(elec2.rad[p]/elec1.rad[p]));
-      Sij *= Sij*Sij;
-      Sij = sqrt(Sij);
-      double tmp = -1*rbar*rbar*r*r;
-      tmp /= (elec1.rad[p]*elec1.rad[p]+elec2.rad[p]*elec2.rad[p]);
-      tmp /= sbar*sbar;
-      Sij *= exp(tmp);
-      //Kinetic energy difference
-      double Tij = 1/(elec1.rad[p]*elec1.rad[p]);
-      Tij += 1/(elec2.rad[p]*elec2.rad[p]);
-      Tij *= 3/(2*sbar*sbar);
-      tmp = 6*sbar*sbar*(elec1.rad[p]*elec1.rad[p]+elec2.rad[p]*elec2.rad[p]);
-      tmp -= 4*rbar*rbar*r*r;
-      tmp /= sbar*sbar*(elec1.rad[p]*elec1.rad[p]+elec2.rad[p]*elec2.rad[p]);
-      tmp /= sbar*sbar*(elec1.rad[p]*elec1.rad[p]+elec2.rad[p]*elec2.rad[p]);
-      Tij -= tmp;
-      Tij *= Har2eV*BohrRad*BohrRad;
-      if (elec1.spin == elec2.spin)
-      {
-        //Symmetric VB spin-orbital
-        double Etmp = Sij*Sij/(1-(Sij*Sij));
-        Etmp += (1-rho)*Sij*Sij/(1+(Sij*Sij));
-        E += Etmp*Tij;
-      }
-      else
-      {
-        //Antisymmetric VB spin orbital
-        E += -1*rho*Sij*Sij*Tij/(1+(Sij*Sij));
-      }
-    }
-  }
-  return E;
-};
-
-double Get_EeFF(vector<Qpart>& parts, vector<Qpart>& elecs)
-{
-  //Total eFF interaction energy
-  double E = 0;
-  #pragma omp parallel for
-  for (int i=0;i<parts.size();i++)
-  {
-    parts[i].Ep = 0;
-    for (int j=0;j<elecs.size();j++)
-    {
-      for (int k=0;k<Nbeads;k++)
-      {
-        parts[i].Ep += EFFEnergy(parts[i],elecs[j],k);
-      }
-    }
-  }
-  #pragma omp barrier
-  #pragma omp parallel for
-  for (int i=0;i<elecs.size();i++)
-  {
-    elecs[i].Ep = 0.0;
-    for (int k=0;k<Nbeads;k++)
-    {
-      //Lepton kinetic energy
-      double Etmp = 3/(2*elecs[i].rad[k]*elecs[i].rad[k]);
-      Etmp *= Har2eV*BohrRad*BohrRad;
-      if (Scale_eFF == 1)
-      {
-        //Reduce kinetic energy as the beads increase
-        Etmp /= rtNbeads;
-      }
-      elecs[i].Ep += Etmp;
-      for (int j=0;j<i;j++)
-      {
-        //Lepton-lepton correlation
-        elecs[i].Ep += EFFCorr(elecs[i],elecs[j],k);
-      }
-    }
-  }
-  #pragma omp barrier
-  for (int i=0;i<parts.size();i++)
-  {
-    E += parts[i].Ep;
-  }
-  for (int i=0;i<elecs.size();i++)
-  {
-    E += elecs[i].Ep;
   }
   E /= Nbeads; //Removes double counting
   return E;

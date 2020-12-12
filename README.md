@@ -1,4 +1,4 @@
-### Overview of PIMC.exe ###
+# Overview of PIMC
 
 This program was created as a sandbox program to learn about path integral
 simulations. Since this is a learning tool, many of the options are defined
@@ -18,13 +18,13 @@ are greater than or equal to the number of CPUs.
 When PIMC.exe is executed, the program looks for two files (pimc.param and
 pimc.pot). Descriptions of the files and commands are given below.
 
-### Simulation Input Description (pimc.param) ###
+## Simulation Input Description (pimc.param)
 
 Note: The format of this file is fixed by the code. The order of the options
 cannot be changed and the spaces should be replaced with underscores. PIMC.exe
 reads a single string before reading the value(s).
 
-#Options
+## Options
 
 Ensemble: NVT or NPT simulations. If the NPT ensemble is chosen, the system
 should be large enough to ensure that the simulation box is twice the size of
@@ -83,7 +83,7 @@ Angles: Num. angles
 <cent. atom> <atom 1> <atom 2> <force constant (eV/rad^2)> <Eq. angle (deg.)>
 ...
 
-#Options for free electrons or positrons using the eFF model
+## Options for free electrons or positrons using the eFF model
 
 Note: The eFF model represents electrons as spherical Gaussian charge
 distributions which have 5 degrees of freedom (x, y, z, radius, and spin). This
@@ -106,7 +106,7 @@ Electrons: Number of free eFF electrons.
 Positrons: Number of free eFF positrons. Note that electron-positron
 interactions are purely Coulombic.
 
-### Non-Bonded Potential Input (pimc.pot) ###
+## Non-Bonded Potential Input (pimc.pot)
 
 Note: This file contains information for the Lennard-Jones and Coulomb
 potentials, as well as the masses of the atoms. The properties are assigned

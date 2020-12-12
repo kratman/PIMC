@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "system.h"
+
 double Dist2(ParticleCoordinates& a, ParticleCoordinates& b)
 {
     //Displacements

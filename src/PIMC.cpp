@@ -17,12 +17,7 @@
 #include "physics_settings.h"
 #include "utilities.h"
 #include "path_integral.h"
-
-//Global parameters
-double Beta,Lx,Ly,Lz,LJcut,Press; //Parameters needed for functions
-double rtNbeads; //Scale factor for eFF kinetic energy
-int Ensemble = 0; //NVT=0, NPT=1
-int Nbeads; //Number of time slices
+#include "system.h"
 
 bool MCMove(std::vector<Qpart>& parts, std::vector<Qpart>& elecs,
             std::map<std::string,LennardJones>& LJmap)

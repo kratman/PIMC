@@ -93,7 +93,7 @@ inline double EFFCorr(Qpart& elec1, Qpart& elec2, int p)
     return E;
 };
 
-double Get_EeFF(vector<Qpart>& parts, vector<Qpart>& elecs)
+double Get_EeFF(std::vector<Qpart>& parts, std::vector<Qpart>& elecs)
 {
     //Total eFF interaction energy
     double E = 0;

@@ -10,7 +10,7 @@ inline double SpringEnergy(double k, double r2)
     return E;
 };
 
-inline double Get_Espring(vector<Qpart>& parts)
+inline double Get_Espring(std::vector<Qpart>& parts)
 {
     //Calculate total harmonic PI ring energy
     double E = 0.0;
@@ -41,7 +41,7 @@ inline double Get_Espring(vector<Qpart>& parts)
     return E;
 };
 
-inline double Get_Epot(vector<Qpart>& parts, map<string,LennardJones>& LJmap)
+inline double Get_Epot(std::vector<Qpart>& parts, std::map<std::string,LennardJones>& LJmap)
 {
     //Bonded and non-bonded potential for atoms
     double E = 0.0;

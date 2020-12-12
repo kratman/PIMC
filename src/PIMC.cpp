@@ -20,7 +20,6 @@
 #include "monte_carlo.h"
 #include "output.h"
 
-//##  Main Code ##//
 int main()
 {
   std::cout << '\n';
@@ -44,7 +43,7 @@ int main()
   //End of section
 
   //Read Input
-  if (Debug == 1)
+  if (Debug)
   {
     std::cout << "Reading input..." << '\n';
   }
@@ -99,7 +98,7 @@ int main()
         randy = 0.5;
         randz = 0.5;
       }
-      if (qGrid == 1)
+      if (qGrid)
       {
         randx = 0.5;
         randy = 0.5;
@@ -410,7 +409,7 @@ int main()
   {
     VolProb = 0.0;
   }
-  if (qGrid == 1)
+  if (qGrid)
   {
     CentProb = 0.0;
     BeadProb = 0.0;
@@ -424,7 +423,7 @@ int main()
   SumE2 = 0;
   VolAvg = 0;
   Ek = 0.0;
-  if ((Atoms.size() > 0) and (qGrid == 0))
+  if ((Atoms.size() > 0) and (!qGrid))
   {
     //Add atom kinetic energy
     Ek += 3*Atoms.size()*Nbeads/(2*Beta);
@@ -438,7 +437,7 @@ int main()
   double Nacc = 0;
   double Nrej = 0;
   bool acc;
-  if (RCOM == 1)
+  if (RCOM)
   {
     Remove_COM(Atoms,Elecs);
   }
@@ -450,7 +449,7 @@ int main()
     {
       BeadProb = 0.10;
     }
-    if (qGrid == 1)
+    if (qGrid)
     {
       BeadProb = 0;
     }
@@ -477,7 +476,7 @@ int main()
     ElCentProb = tmp4;
   }
   std::cout << "Starting equilibration..." << '\n';
-  if (Debug == 1)
+  if (Debug)
   {
     Print_traj(Atoms,Elecs,trajfile,PrintMode);
   }
@@ -486,7 +485,7 @@ int main()
   {
     if(ct == Acc_Check)
     {
-      if (Debug == 1)
+      if (Debug)
       {
         std::cout << "Step: ";
         std::cout << Nct;
@@ -614,7 +613,7 @@ int main()
   //End of section
 
   //Clean up and quit
-  if (Debug == 1)
+  if (Debug)
   {
     std::cout << "Cleaning up..." << '\n';
   }

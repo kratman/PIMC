@@ -9,6 +9,8 @@ add_executable(PIMC
         inc/coordinates.h
         inc/lennard_jones.h
         inc/physical_constants.h
+        inc/electron.h
+        inc/move_settings.h
         src/PIMC.cpp)
 
 target_include_directories(PIMC PRIVATE inc)

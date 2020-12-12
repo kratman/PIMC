@@ -4,8 +4,9 @@
 #include <vector>
 #include <string>
 #include "coordinates.h"
-#include "harmonic_bond.h"
-#include "harmonic_angle.h"
+
+struct BondParameters;
+struct AngleParameters;
 
 struct Qpart
 {

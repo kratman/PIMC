@@ -3,6 +3,8 @@
 
 #include "particle.h"
 #include "physics_settings.h"
+#include "miscellaneous_constants.h"
+#include "utilities.h"
 
 struct AngleParameters
 {

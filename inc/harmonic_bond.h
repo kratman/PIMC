@@ -4,6 +4,8 @@
 #include "physical_constants.h"
 #include "particle.h"
 #include "miscellaneous_constants.h"
+#include "utilities.h"
+#include "physics_settings.h"
 
 struct BondParameters
 {

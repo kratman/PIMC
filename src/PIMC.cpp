@@ -16,9 +16,7 @@
 #include "particle.h"
 #include "physics_settings.h"
 #include "utilities.h"
-
-using namespace std;
-
+#include "path_integral.h"
 
 //Global parameters
 double Beta,Lx,Ly,Lz,LJcut,Press; //Parameters needed for functions
@@ -26,103 +24,13 @@ double rtNbeads; //Scale factor for eFF kinetic energy
 int Ensemble = 0; //NVT=0, NPT=1
 int Nbeads; //Number of time slices
 
-double SpringEnergy(double k, double r2)
-{
-  //General harmonic bond for PI rings
-  double E = 0.5*k*r2;
-  return E;
-};
-
-double Get_Espring(vector<Qpart>& parts)
-{
-  //Calculate total harmonic PI ring energy
-  double E = 0.0;
-  double w0 = 1/(Beta*hbar);
-  w0 *= w0*ToeV;
-  #pragma omp parallel for
-  for (int i=0;i<parts.size();i++)
-  {
-    parts[i].Ep = 0.0;
-    double w = w0*parts[i].m*Nbeads;
-    for (int j=0;j<Nbeads;j++)
-    {
-      //Bead energy, one bond to avoid double counting
-      int j2 = j-1;
-      if (j2 == -1)
-      {
-        j2 = Nbeads-1; //Ring PBC
-      }
-      double dr2 = Dist2(parts[i].P[j],parts[i].P[j2]);
-      parts[i].Ep += SpringEnergy(w,dr2);
-    }
-  }
-  #pragma omp barrier
-  for (int i=0;i<parts.size();i++)
-  {
-    E += parts[i].Ep;
-  }
-  return E;
-};
-
-double Get_Epot(vector<Qpart>& parts, map<string,LennardJones>& LJmap)
-{
-  //Bonded and non-bonded potential for atoms
-  double E = 0.0;
-  #pragma omp parallel for
-  for (int i=0;i<parts.size();i++)
-  {
-    parts[i].Ep = 0.0;
-    for (int j=0;j<Nbeads;j++)
-    {
-      //Bond energy, Coulomb subtracted
-      for (int l=0;l<parts[i].Bonds.size();l++)
-      {
-        int at2 = parts[i].Bonds[l].at2;
-        if (at2 > i)
-        {
-          parts[i].Ep += HarmEnergy(parts[i].Bonds[l],parts[i],parts[at2],j);
-        }
-      }
-      //Angle energy, Coulomb subtracted
-      for (int l=0;l<parts[i].Angs.size();l++)
-      {
-        int at2 = parts[i].Angs[l].at2;
-        int at3 = parts[i].Angs[l].at3;
-        parts[i].Ep += AngEnergy(parts[i].Angs[l],parts[i],
-        parts[at2],parts[at3],j);
-      }
-      //Non-Bonded energy
-      for (int k=0;k<i;k++)
-      {
-        double dr2 = Dist2(parts[i].P[j],parts[k].P[j]);
-        //LJ and Coulomb energy
-        double sig = LJmap[parts[i].typ+parts[k].typ].sig;
-        double eps = LJmap[parts[i].typ+parts[k].typ].eps;
-        double rtest = LJcut*LJcut;
-        if (dr2 < rtest)
-        {
-          double r = sqrt(dr2);
-          parts[i].Ep += LJEnergy(sig,eps,r,parts[i].q,parts[k].q);
-        }
-      }
-    }
-  }
-  #pragma omp barrier
-  for (int i=0;i<parts.size();i++)
-  {
-    E += parts[i].Ep;
-  }
-  E /= Nbeads; //Removes double counting
-  return E;
-};
-
-bool MCMove(vector<Qpart>& parts, vector<Qpart>& elecs,
- map<string,LennardJones>& LJmap)
+bool MCMove(std::vector<Qpart>& parts, std::vector<Qpart>& elecs,
+            std::map<std::string,LennardJones>& LJmap)
 {
   bool acc = 0;
   //Copy parts
-  vector<Qpart> parts2;
-  vector<Qpart> elecs2;
+  std::vector<Qpart> parts2;
+  std::vector<Qpart> elecs2;
   parts2 = parts;
   elecs2 = elecs;
   //Pick random move and apply PBC
@@ -589,7 +497,7 @@ bool MCMove(vector<Qpart>& parts, vector<Qpart>& elecs,
   double dE = Enew-Eold;
   if ((dE == 0.0) and (Debug == 1))
   {
-    cout << "Warning two structures have identical energies." << '\n';
+    std::cout << "Warning two structures have identical energies." << '\n';
   }
   double Prob = exp(-1*dE*Beta);
   randnum = (((double)rand())/((double)RAND_MAX));
@@ -626,7 +534,7 @@ void Get_Centroid(Qpart& part)
   return;
 };
 
-ParticleCoordinates Get_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
+ParticleCoordinates Get_COM(std::vector<Qpart>& parts, std::vector<Qpart>& elecs)
 {
   double x=0,y=0,z=0,M=0;
   ParticleCoordinates com;
@@ -676,7 +584,7 @@ ParticleCoordinates Get_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
   return com;
 };
 
-void Get_Range(vector<Qpart>& parts, ParticleCoordinates& Ls, ParticleCoordinates& Hs)
+void Get_Range(std::vector<Qpart>& parts, ParticleCoordinates& Ls, ParticleCoordinates& Hs)
 {
   //Find the min and max values of the positions
   double minx = 1000000000.0;
@@ -731,7 +639,7 @@ void Get_Range(vector<Qpart>& parts, ParticleCoordinates& Ls, ParticleCoordinate
   return;
 };
 
-void Remove_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
+void Remove_COM(std::vector<Qpart>& parts, std::vector<Qpart>& elecs)
 {
   ParticleCoordinates com = Get_COM(parts, elecs);
   //Subtract COM for atoms
@@ -919,8 +827,8 @@ void Remove_COM(vector<Qpart>& parts, vector<Qpart>& elecs)
   return;
 };
 
-void Print_traj(vector<Qpart>& parts, vector<Qpart>& elecs,
- fstream& traj, string mode)
+void Print_traj(std::vector<Qpart>& parts, std::vector<Qpart>& elecs,
+                std::fstream& traj, std::string mode)
 {
   if (RCOM == 1)
   {
@@ -985,30 +893,30 @@ void Print_traj(vector<Qpart>& parts, vector<Qpart>& elecs,
 //##  Main Code ##//
 int main()
 {
-  cout << '\n';
+  std::cout << '\n';
   //Initialize dynamic parameters
   srand((unsigned)time(0)); //Serial only random numbers
-  string dummy,PrintMode,SpinMode;
-  string filename1 = "pimc.param"; //Input file
-  string filename2 = "traj.xyz"; //Output trajectory
-  string filename3 = "pimc.pot"; //Potential file
-  string filename4; //xyz input
-  string filename5; //Connectivity input
-  fstream paramfile,trajfile,potfile,xyzfile,bondfile;
+  std::string dummy,PrintMode,SpinMode;
+  std::string filename1 = "pimc.param"; //Input file
+  std::string filename2 = "traj.xyz"; //Output trajectory
+  std::string filename3 = "pimc.pot"; //Potential file
+  std::string filename4; //xyz input
+  std::string filename5; //Connectivity input
+  std::fstream paramfile,trajfile,potfile,xyzfile,bondfile;
   int Natoms,Nsteps,Ntyps,Neq,Nprint,Npre,Nelec,Npos;
   double accratio,SumE,SumE2,VolAvg,Ek;
-  vector<Qpart> Atoms;
-  vector<string> Types;
-  map<string,LennardJones> LJparams;
-  paramfile.open(filename1.c_str(),ios_base::in);
-  trajfile.open(filename2.c_str(),ios_base::out);
-  potfile.open(filename3.c_str(),ios_base::in);
+  std::vector<Qpart> Atoms;
+  std::vector<std::string> Types;
+  std::map<std::string,LennardJones> LJparams;
+  paramfile.open(filename1.c_str(),std::ios_base::in);
+  trajfile.open(filename2.c_str(),std::ios_base::out);
+  potfile.open(filename3.c_str(),std::ios_base::in);
   //End of section
 
   //Read Input
   if (Debug == 1)
   {
-    cout << "Reading input..." << '\n';
+    std::cout << "Reading input..." << '\n';
   }
   paramfile >> dummy;
   paramfile >> dummy >> dummy;
@@ -1036,11 +944,11 @@ int main()
   paramfile >> dummy >> Npre;
   paramfile >> dummy >> Nelec;
   paramfile >> dummy >> Npos;
-  xyzfile.open(filename4.c_str(),ios_base::in);
+  xyzfile.open(filename4.c_str(),std::ios_base::in);
   xyzfile >> Natoms;
   for (int i=0;i<Natoms;i++)
   {
-    string typ;
+    std::string typ;
     double x,y,z;
     xyzfile >> typ >> x >> y >> z;
     Qpart tmp;
@@ -1082,7 +990,7 @@ int main()
   potfile >> dummy; //Types
   for (int i=0;i<Ntyps;i++)
   {
-    string tmp;
+    std::string tmp;
     potfile >> tmp;
     Types.push_back(tmp);
   }
@@ -1148,7 +1056,7 @@ int main()
     if (filename5 != "none")
     {
       //Collect bonding info
-      bondfile.open(filename5.c_str(),ios_base::in);
+      bondfile.open(filename5.c_str(),std::ios_base::in);
       int Nbonds;
       bondfile >> dummy >> Nbonds;
       for (int i=0;i<Nbonds;i++)
@@ -1159,8 +1067,8 @@ int main()
         tmp2.R = tmp.R;
         if ((tmp.at2 > Atoms.size()) or (tmp.at2 > Atoms.size()))
         {
-          cout << "Bond to non-existent atom!!!!" << '\n';
-          cout << "Check connectivity file." << '\n';
+          std::cout << "Bond to non-existent atom!!!!" << '\n';
+          std::cout << "Check connectivity file." << '\n';
           return 0;
         }
         Atoms[tmp2.at2].Bonds.push_back(tmp);
@@ -1177,15 +1085,15 @@ int main()
         if ((tmp.at2 > Atoms.size()) or (tmp.at2 > Atoms.size())
         or (cent > Atoms.size()))
         {
-          cout << "Angle with non-existent atom!!!!" << '\n';
-          cout << "Check connectivity file." << '\n';
+          std::cout << "Angle with non-existent atom!!!!" << '\n';
+          std::cout << "Check connectivity file." << '\n';
           return 0;
         }
         Atoms[cent].Angs.push_back(tmp);
       }
     }
   }
-  vector<Qpart> Elecs;
+  std::vector<Qpart> Elecs;
   if (Nelec > 0)
   {
     int spinct = -1;
@@ -1279,20 +1187,20 @@ int main()
   //End of section
 
   //Print input for error checking
-  cout << "Setting up simulation..." << '\n';
-  cout << '\n';
-  cout << "Atoms: " << Natoms << '\n';
-  cout << "Electrons: " << Nelec << '\n';
-  cout << "Positrons: " << Npos << '\n';
-  cout << "Beads: " << Nbeads << '\n';
-  cout << '\n';
+  std::cout << "Setting up simulation..." << '\n';
+  std::cout << '\n';
+  std::cout << "Atoms: " << Natoms << '\n';
+  std::cout << "Electrons: " << Nelec << '\n';
+  std::cout << "Positrons: " << Npos << '\n';
+  std::cout << "Beads: " << Nbeads << '\n';
+  std::cout << '\n';
   if ((Npre > 0) and (Elecs.size() > 0))
   {
-    cout << "Pre-equilibration steps for electrons: ";
-    cout << Npre << '\n';
+    std::cout << "Pre-equilibration steps for electrons: ";
+    std::cout << Npre << '\n';
   }
-  cout << "Equilibration steps: " << Neq << '\n';
-  cout << "Steps for production run: " << Nsteps << '\n';
+  std::cout << "Equilibration steps: " << Neq << '\n';
+  std::cout << "Steps for production run: " << Nsteps << '\n';
 
   //Adjust probabilities
   if (Atoms.size() == 0)
@@ -1333,40 +1241,40 @@ int main()
     FlipProb = 0.0;
   }
   if ((SpinMode == "LPIMC") or (SpinMode == "lpimc")
-  or (SpinMode == "LOW") or (SpinMode == "low"))
+     or (SpinMode == "LOW") or (SpinMode == "low"))
   {
     FlipProb = 0;
-    cout << "Mode: ";
+    std::cout << "Mode: ";
     if (Ensemble == 0)
     {
-      cout << "NVT";
+      std::cout << "NVT";
     }
     if (Ensemble == 1)
     {
-      cout << "NPT";
+      std::cout << "NPT";
     }
     if (Elecs.size() > 0)
     {
-      cout << " Low-Spin";
+      std::cout << " Low-Spin";
     }
-    cout << " PIMC" << '\n';
+    std::cout << " PIMC" << '\n';
   }
   else
   {
-    cout << "Mode: ";
+    std::cout << "Mode: ";
     if (Ensemble == 0)
     {
-      cout << "NVT";
+      std::cout << "NVT";
     }
     if (Ensemble == 1)
     {
-      cout << "NPT";
+      std::cout << "NPT";
     }
     if (Elecs.size() > 0)
     {
-      cout << " High-Spin";
+      std::cout << " High-Spin";
     }
-    cout << " PIMC" << '\n';
+    std::cout << " PIMC" << '\n';
   }
   if (Ensemble == 0)
   {
@@ -1379,7 +1287,7 @@ int main()
   }
 
   //Run simulations
-  cout << '\n';
+  std::cout << '\n';
   Beta = 1/(k*Beta); //Invert temperature
   rtNbeads = pow(Nbeads,Scale_POW);
   SumE = 0;
@@ -1406,7 +1314,7 @@ int main()
   }
   if ((Npre > 0) and (Elecs.size() > 0))
   {
-    cout << "Starting electron pre-equilibration..." << '\n';
+    std::cout << "Starting electron pre-equilibration..." << '\n';
     double tmp1 = BeadProb;
     if (Atoms.size() > 0)
     {
@@ -1438,7 +1346,7 @@ int main()
     ElBeadProb = tmp3;
     ElCentProb = tmp4;
   }
-  cout << "Starting equilibration..." << '\n';
+  std::cout << "Starting equilibration..." << '\n';
   if (Debug == 1)
   {
     Print_traj(Atoms,Elecs,trajfile,PrintMode);
@@ -1450,9 +1358,9 @@ int main()
     {
       if (Debug == 1)
       {
-        cout << "Step: ";
-        cout << Nct;
-        cout << " Energy: ";
+        std::cout << "Step: ";
+        std::cout << Nct;
+        std::cout << " Energy: ";
         double Veff = Ek; //Kinetic energy
         if (Atoms.size() > 0)
         {
@@ -1470,11 +1378,11 @@ int main()
         {
           Veff += Press*Lx*Ly*Lz*atm2eV;
         }
-        cout << Veff;
-        cout << " Accept ratio: ";
-        cout << (Nacc/(Nrej+Nacc));
-        cout << " Step size: ";
-        cout << step << '\n';
+        std::cout << Veff;
+        std::cout << " Accept ratio: ";
+        std::cout << (Nacc/(Nrej+Nacc));
+        std::cout << " Step size: ";
+        std::cout << step << '\n';
         Print_traj(Atoms,Elecs,trajfile,PrintMode);
       }
       if ((Nacc/(Nrej+Nacc)) > accratio)
@@ -1513,7 +1421,7 @@ int main()
   Nacc = 0;
   Nrej = 0;
   ct = 0;
-  cout << "Starting production run..." << '\n';
+  std::cout << "Starting production run..." << '\n';
   Print_traj(Atoms,Elecs,trajfile,PrintMode);
   while (Nct < Nsteps)
   {
@@ -1557,34 +1465,34 @@ int main()
   VolAvg /= Nsteps;
 
   //Print output
-  cout << '\n';
-  cout << "Temperature: ";
-  cout << 1.0/(k*Beta);
-  cout << " Volume: ";
-  cout << VolAvg;
-  cout << '\n';
-  cout << "Average Energy: ";
-  cout << SumE;
-  cout << " Variance: ";
-  cout << (SumE2-SumE*SumE);
-  cout << '\n';
-  cout << "Acceptance ratio: ";
-  cout << (Nacc/(Nrej+Nacc));
-  cout << " Step size: ";
-  cout << step;
-  cout << '\n' << '\n';
+  std::cout << '\n';
+  std::cout << "Temperature: ";
+  std::cout << 1.0/(k*Beta);
+  std::cout << " Volume: ";
+  std::cout << VolAvg;
+  std::cout << '\n';
+  std::cout << "Average Energy: ";
+  std::cout << SumE;
+  std::cout << " Variance: ";
+  std::cout << (SumE2-SumE*SumE);
+  std::cout << '\n';
+  std::cout << "Acceptance ratio: ";
+  std::cout << (Nacc/(Nrej+Nacc));
+  std::cout << " Step size: ";
+  std::cout << step;
+  std::cout << '\n' << '\n';
   //End of section
 
   //Clean up and quit
   if (Debug == 1)
   {
-    cout << "Cleaning up..." << '\n';
+    std::cout << "Cleaning up..." << '\n';
   }
   paramfile.close();
   trajfile.close();
   potfile.close();
   xyzfile.close();
   bondfile.close();
-  cout << "Done." << '\n' << '\n';
+  std::cout << "Done." << '\n' << '\n';
   return 0;
 };

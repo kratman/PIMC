@@ -15,6 +15,7 @@ add_executable(PIMC
         inc/miscellaneous_constants.h
         inc/physics_settings.h
         inc/utilities.h
+        inc/path_integral.h
         src/PIMC.cpp)
 
 target_include_directories(PIMC PRIVATE inc)
